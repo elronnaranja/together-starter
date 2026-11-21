@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.env*
+*.sqlite
+*.sqlite-*
+together-full-backup*.json
+together-budget-*.json
+restore-initial-state.json
