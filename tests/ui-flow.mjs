@@ -1,16 +1,14 @@
 // Optional browser check of the real server: first-run setup, add a bill, money in and out, balance, second person.
-// Needs Playwright with Chromium (not a project dependency). Run after `npm run build`:
+// Runs the real Vercel function through scripts/local-server.mjs on a throwaway local Postgres (see tests/local-postgres.mjs).
+// Needs Playwright with Chromium (not a project dependency). Run after `npm install` and `npm run build`:
 //   PLAYWRIGHT=/path/to/node_modules/playwright/index.js node tests/ui-flow.mjs
-import {spawn, spawnSync} from 'node:child_process';
-import {mkdtempSync, rmSync} from 'node:fs';
-import {tmpdir} from 'node:os';
+import {startPostgres, startServer} from './local-postgres.mjs';
 import {createHash} from 'node:crypto';
 import assert from 'node:assert/strict';
 const pw = await import(process.env.PLAYWRIGHT || 'playwright'), chromium = pw.chromium || pw.default.chromium;
 const hash = s => createHash('sha256').update(s).digest('hex');
-const port = 4338, origin = 'http://localhost:' + port, dir = mkdtempSync(tmpdir() + '/together-ui-');
-const bun = spawnSync('bun', ['--version']).status === 0 ? ['bun'] : ['npx', '--yes', 'bun'];
-const server = spawn(bun[0], [...bun.slice(1), 'dist/server.ts'], {env: {...process.env, PORT: String(port), APP_ORIGIN: origin, DATA_DIR: dir, SETUP_OWNER_HASH: hash('ui-owner'), SETUP_VIEWER_HASH: hash('ui-viewer')}, stdio: 'ignore'});
+const port = 4338, origin = 'http://localhost:' + port, pg = startPostgres(54338);
+const server = startServer(port, {APP_ORIGIN: origin, DATABASE_URL: pg.url, SETUP_OWNER_HASH: hash('ui-owner'), SETUP_VIEWER_HASH: hash('ui-viewer')});
 const results = [];
 const check = (name, ok) => { results.push((ok ? 'PASS ' : 'FAIL ') + name); if (!ok) process.exitCode = 1; };
 let browser;
@@ -112,7 +110,8 @@ try {
 } finally {
   await browser?.close();
   server.kill();
-  rmSync(dir, {recursive: true, force: true});
+  await new Promise(r => setTimeout(r, 200));
+  pg.stop();
 }
 console.log(results.join('\n'));
 console.log(`${results.filter(r => r.startsWith('PASS')).length}/${results.length} passed`);

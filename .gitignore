@@ -1,8 +1,7 @@
 node_modules/
 dist/
+.vercel/
 .env*
-*.sqlite
-*.sqlite-*
 together-full-backup*.json
 together-budget-*.json
-restore-initial-state.json
+restore.sql
